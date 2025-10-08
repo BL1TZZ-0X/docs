@@ -8,7 +8,11 @@
   "servers": [
     {
       "url": "http://localhost:80",
-      "description": "Local"
+      "description": "HTTP API"
+    },
+    {
+      "url": "ws://localhost:8099",
+      "description": "WebSocket stream"
     }
   ],
   "paths": {
@@ -226,6 +230,42 @@
           }
         }
       }
+    },
+    "/": {
+      "get": {
+        "summary": "WebSocket upgrade",
+        "description": "Connect to ws://localhost:8099/. After upgrade, send WsRequest frames. Server responds with WsResponse (acks) and WsEvent (streamed trades/creates/migrations). Limits: max 2 connections per IP. Timeout: connection closes if no filter set within 10 seconds.",
+        "operationId": "websocketUpgrade",
+        "tags": [
+          "WebSocket"
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching Protocols. After upgrade, client sends WsRequest and receives WsResponse and WsEvent JSON messages."
+          },
+          "429": {
+            "description": "Too Many Requests (max 2 connections per IP)."
+          },
+          "400": {
+            "description": "Bad handshake/request."
+          }
+        },
+        "x-websocket": {
+          "send": {
+            "$ref": "#/components/schemas/WsRequest"
+          },
+          "receive": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WsResponse"
+              },
+              {
+                "$ref": "#/components/schemas/WsEvent"
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "components": {
@@ -300,11 +340,7 @@
           "prioFee": {
             "type": "number",
             "format": "double",
-            "description": "Priority fee input used to compute CU price"
-          },
-          "dex": {
-            "type": "string",
-            "description": "Legacy; pool takes precedence if provided"
+            "description": "Priority fee input used to compute CU price (in SOL)"
           },
           "pool": {
             "type": "string",
@@ -393,6 +429,222 @@
         "required": [
           "error"
         ]
+      },
+      "WsRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "subscribeFilterMint" },
+              "pubkeys": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": [ "method", "pubkeys" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "unsubscribeFilterMint" },
+              "pubkeys": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": [ "method", "pubkeys" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "subscribeFilterAccount" },
+              "pubkeys": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": [ "method", "pubkeys" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "unsubscribeFilterAccount" },
+              "pubkeys": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": [ "method", "pubkeys" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "subscribeNewCreation" }
+            },
+            "required": [ "method" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "unsubscribeNewCreation" }
+            },
+            "required": [ "method" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "subscribeMigrations" }
+            },
+            "required": [ "method" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": { "const": "unsubscribeMigrations" }
+            },
+            "required": [ "method" ]
+          }
+        ],
+        "discriminator": {
+          "propertyName": "method"
+        },
+        "description": "Client messages to manage filters. Must send at least one subscription within 10 seconds."
+      },
+      "WsResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "subscribed" },
+              "method": { "type": "string" },
+              "count": { "type": "integer" },
+              "total": { "type": "integer" },
+              "message": { "type": "string" }
+            },
+            "required": [ "type", "method", "count", "total", "message" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "unsubscribed" },
+              "method": { "type": "string" },
+              "count": { "type": "integer" },
+              "remaining": { "type": "integer" },
+              "message": { "type": "string" }
+            },
+            "required": [ "type", "method", "count", "remaining", "message" ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "error" },
+              "method": { "type": "string" },
+              "error": { "type": "string" }
+            },
+            "required": [ "type", "method", "error" ]
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        },
+        "description": "Acknowledgements for subscribe/unsubscribe requests, or errors."
+      },
+      "WsEventPumpFunTrade": {
+        "type": "object",
+        "properties": {
+          "signature": { "type": "string" },
+          "mint": { "type": "string" },
+          "traderPublicKey": { "type": "string" },
+          "txType": { "type": "string", "enum": ["buy", "sell"] },
+          "tokenAmount": { "type": "number", "format": "double" },
+          "solAmount": { "type": "number", "format": "double" },
+          "virtualSolReserves": { "type": "integer", "format": "int64" },
+          "virtualTokenReserves": { "type": "integer", "format": "int64" },
+          "pool": { "type": "string", "enum": ["pump"] }
+        },
+        "required": [
+          "signature",
+          "mint",
+          "traderPublicKey",
+          "txType",
+          "tokenAmount",
+          "solAmount",
+          "virtualSolReserves",
+          "virtualTokenReserves",
+          "pool"
+        ]
+      },
+      "WsEventPumpAmmTrade": {
+        "type": "object",
+        "properties": {
+          "signature": { "type": "string" },
+          "mint": { "type": "string" },
+          "traderPublicKey": { "type": "string" },
+          "txType": { "type": "string", "enum": ["buy", "sell"] },
+          "tokenAmount": { "type": "number", "format": "double" },
+          "solAmount": { "type": "number", "format": "double" },
+          "poolBaseTokenReserves": { "type": "integer", "format": "int64" },
+          "poolQuoteTokenReserves": { "type": "integer", "format": "int64" },
+          "poolAccount": { "type": "string" },
+          "pool": { "type": "string", "enum": ["pump-amm"] }
+        },
+        "required": [
+          "signature",
+          "mint",
+          "traderPublicKey",
+          "txType",
+          "tokenAmount",
+          "solAmount",
+          "poolBaseTokenReserves",
+          "poolQuoteTokenReserves",
+          "poolAccount",
+          "pool"
+        ]
+      },
+      "WsEventPumpFunCreate": {
+        "type": "object",
+        "properties": {
+          "signature": { "type": "string" },
+          "mint": { "type": "string" },
+          "creator": { "type": "string" },
+          "txType": { "type": "string", "enum": ["create"] },
+          "initialBuy": { "type": "number", "format": "double" },
+          "solAmount": { "type": "number", "format": "double" },
+          "bondingCurve": { "type": "string" },
+          "name": { "type": "string" },
+          "symbol": { "type": "string" },
+          "uri": { "type": "string" },
+          "pool": { "type": "string", "enum": ["pump"] }
+        },
+        "required": [
+          "signature",
+          "mint",
+          "creator",
+          "txType",
+          "initialBuy",
+          "solAmount",
+          "bondingCurve",
+          "name",
+          "symbol",
+          "uri",
+          "pool"
+        ]
+      },
+      "WsEventPumpFunMigrate": {
+        "type": "object",
+        "properties": {
+          "signature": { "type": "string" },
+          "txType": { "type": "string", "enum": ["migrate"] },
+          "mint": { "type": "string" },
+          "lp_mint": { "type": "string" },
+          "poolAccount": { "type": "string" },
+          "pool": { "type": "string", "enum": ["pump"] }
+        },
+        "required": [
+          "signature",
+          "txType",
+          "mint",
+          "lp_mint",
+          "poolAccount",
+          "pool"
+        ]
+      },
+      "WsEvent": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/WsEventPumpFunTrade" },
+          { "$ref": "#/components/schemas/WsEventPumpAmmTrade" },
+          { "$ref": "#/components/schemas/WsEventPumpFunCreate" },
+          { "$ref": "#/components/schemas/WsEventPumpFunMigrate" }
+        ],
+        "description": "Server-sent event messages for trades, creates, and migrations."
       }
     }
   }
