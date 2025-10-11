@@ -6,101 +6,246 @@ description: "Here are some code examples for creating tokens using Blitzz API "
 ## Local Trade Mode
 
 <CodeGroup>
-  ```javascript JavaScript theme={"system"}
-  import { Transaction, SystemProgram, ComputeBudgetProgram } from "@solana/web3.js";
-  import bs58 from "bs58";
 
-  // 1. Build your transaction (without priority fee)
-  const transaction = new Transaction();
-  const transferIx = SystemProgram.transfer({
-    fromPubkey: senderKeypair.publicKey,
-    toPubkey: recipientPublicKey,
-    lamports: 1000000, // 0.001 SOL
-  });
-  transaction.add(transferIx);
+```rust Rust
+use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use reqwest::multipart::{Form, Part};
+use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{signature::Keypair, signer::Signer, transaction::VersionedTransaction};
+use std::{env, fs};
 
-  // 2. Set required fields and serialize
-  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  transaction.feePayer = senderKeypair.publicKey;
-  const serializedTx = bs58.encode(transaction.serialize());
+const BLITZZ_API: &str = "http://api.blitzz.fun";
+const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
 
-  // 3. Get priority fee estimate
-  const response = await fetch("https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "1",
-      method: "getPriorityFeeEstimate",
-      params: [{
-        transaction: serializedTx,
-        options: { 
-          priorityLevel: "Medium",
-          recommended: true 
+#[derive(Serialize)]
+struct CreateRequest {
+    #[serde(rename = "type")]
+    tx_type: String,
+    pool: String,
+    payer: String,
+    amount: u64,
+    slippage_pct: f64,
+    #[serde(rename = "prioFee")]
+    prio_fee: f64,
+    metadata: Metadata,
+}
+
+#[derive(Serialize)]
+struct Metadata {
+    name: String,
+    symbol: String,
+    uri: String,
+}
+
+#[derive(Deserialize)]
+struct IpfsResponse {
+    #[serde(rename = "metadataUri")]
+    metadata_uri: String,
+}
+
+#[derive(Deserialize)]
+struct TxResponse {
+    tx: Option<String>,
+    error: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let private_key = env::var("SOLANA_PRIVATE_KEY")?;
+    let keypair = Keypair::from_base58_string(&private_key);
+
+    // Upload metadata to IPFS
+    let image_bytes = fs::read("./token-image.png")?;
+    let form = Form::new()
+        .part("file", Part::bytes(image_bytes).file_name("token-image.png"))
+        .text("name", "My Token")
+        .text("symbol", "MTK")
+        .text("description", "A token created via Blitzz API")
+        .text("twitter", "https://twitter.com/mytoken")
+        .text("telegram", "https://t.me/mytoken")
+        .text("website", "https://mytoken.com")
+        .text("showName", "true");
+
+    let client = reqwest::Client::new();
+    let ipfs_res: IpfsResponse = client
+        .post("https://pump.fun/api/ipfs")
+        .multipart(form)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // Build unsigned transaction
+    let request = CreateRequest {
+        tx_type: "create".to_string(),
+        pool: "pump".to_string(),
+        payer: keypair.pubkey().to_string(),
+        amount: 10_000_000,
+        slippage_pct: 0.5,
+        prio_fee: 0.0005,
+        metadata: Metadata {
+            name: "My Token".to_string(),
+            symbol: "MTK".to_string(),
+            uri: ipfs_res.metadata_uri,
+        },
+    };
+
+    let tx_res: TxResponse = client
+        .post(format!("{}/local-trade", BLITZZ_API))
+        .json(&request)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = tx_res.error {
+        anyhow::bail!("API error: {}", error);
+    }
+
+    // Sign and send transaction
+    let tx_bytes = BASE64.decode(tx_res.tx.unwrap())?;
+    let mut transaction: VersionedTransaction = bincode::deserialize(&tx_bytes)?;
+    transaction.sign(&[&keypair], transaction.message.recent_blockhash());
+
+    let rpc_client = RpcClient::new(RPC_URL);
+    let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
+
+    println!("Token created! Signature: {}", signature);
+    Ok(())
+}
+```
+
+
+```python Python
+import os
+import base64
+import requests
+from solders.keypair import Keypair
+from solders.transaction import VersionedTransaction
+from solana.rpc.api import Client
+
+BLITZZ_API = "http://api.blitzz.fun"
+RPC_URL = "https://api.mainnet-beta.solana.com"
+
+def create_token_local_mode():
+    keypair = Keypair.from_base58_string(os.environ["SOLANA_PRIVATE_KEY"])
+    
+    # Upload metadata to IPFS
+    with open("./token-image.png", "rb") as f:
+        files = {"file": ("token-image.png", f, "image/png")}
+        data = {
+            "name": "My Token",
+            "symbol": "MTK",
+            "description": "A token created via Blitzz API",
+            "twitter": "https://twitter.com/mytoken",
+            "telegram": "https://t.me/mytoken",
+            "website": "https://mytoken.com",
+            "showName": "true"
         }
-      }]
+        ipfs_res = requests.post("https://pump.fun/api/ipfs", files=files, data=data)
+        metadata_uri = ipfs_res.json()["metadataUri"]
+    
+    # Build unsigned transaction
+    tx_res = requests.post(f"{BLITZZ_API}/local-trade", json={
+        "type": "create",
+        "pool": "pump",
+        "payer": str(keypair.pubkey()),
+        "amount": 10_000_000,
+        "slippage_pct": 0.5,
+        "prioFee": 0.0005,
+        "metadata": {
+            "name": "My Token",
+            "symbol": "MTK",
+            "uri": metadata_uri
+        }
+    })
+    
+    result = tx_res.json()
+    if "error" in result:
+        raise Exception(result["error"])
+    
+    # Sign and send transaction
+    tx_bytes = base64.b64decode(result["tx"])
+    transaction = VersionedTransaction.from_bytes(tx_bytes)
+    transaction.sign([keypair])
+    
+    client = Client(RPC_URL)
+    signature = client.send_transaction(transaction).value
+    client.confirm_transaction(signature)
+    
+    print(f"Token created! Signature: {signature}")
+    return signature
+
+if __name__ == "__main__":
+    create_token_local_mode()
+```
+
+
+```javascript Javascript
+import fs from 'fs/promises';
+import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+const BLITZZ_API = 'http://api.blitzz.fun';
+const RPC_URL = 'https://api.mainnet-beta.solana.com';
+
+async function createTokenLocalMode() {
+  const keypair = Keypair.fromSecretKey(bs58.decode(process.env.SOLANA_PRIVATE_KEY));
+  
+  // Upload metadata to IPFS
+  const formData = new FormData();
+  formData.append('file', await fs.openAsBlob('./token-image.png'));
+  formData.append('name', 'My Token');
+  formData.append('symbol', 'MTK');
+  formData.append('description', 'A token created via Blitzz API');
+  formData.append('twitter', 'https://twitter.com/mytoken');
+  formData.append('telegram', 'https://t.me/mytoken');
+  formData.append('website', 'https://mytoken.com');
+  formData.append('showName', 'true');
+
+  const metadataRes = await fetch('https://pump.fun/api/ipfs', {
+    method: 'POST',
+    body: formData
+  });
+  const { metadataUri } = await metadataRes.json();
+
+  // Build unsigned transaction
+  const txRes = await fetch(`${BLITZZ_API}/local-trade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'create',
+      pool: 'pump',
+      payer: keypair.publicKey.toBase58(),
+      amount: 10000000, // 0.01 SOL initial buy
+      slippage_pct: 0.5,
+      prioFee: 0.0005,
+      metadata: {
+        name: 'My Token',
+        symbol: 'MTK',
+        uri: metadataUri
+      }
     })
   });
 
-  const result = await response.json();
-  const priorityFee = result.result.priorityFeeEstimate;
+  const { tx, error } = await txRes.json();
+  if (error) throw new Error(error);
 
-  // 4. Add priority fee and send
-  transaction.instructions = []; // Reset
-  transaction.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFee }));
-  transaction.add(transferIx);
-  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  transaction.sign(senderKeypair);
-  ```
+  // Sign and send transaction
+  const connection = new Connection(RPC_URL);
+  const transaction = VersionedTransaction.deserialize(Buffer.from(tx, 'base64'));
+  transaction.sign([keypair]);
 
-  ```python Python theme={"system"}
-  import requests
-  import base58
-  from solana.transaction import Transaction
-  from solana.system_program import transfer, TransferParams
+  const signature = await connection.sendTransaction(transaction);
+  await connection.confirmTransaction(signature, 'confirmed');
 
-  # 1. Build and serialize your transaction
-  # (transaction building code here)
-  serialized_tx = base58.b58encode(transaction.serialize()).decode('utf-8')
+  console.log('Token created! Signature:', signature);
+  return signature;
+}
 
-  # 2. Get priority fee estimate
-  response = requests.post(
-      "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY",
-      json={
-          "jsonrpc": "2.0",
-          "id": "1",
-          "method": "getPriorityFeeEstimate",
-          "params": [{
-              "transaction": serialized_tx,
-              "options": {
-                  "priorityLevel": "Medium",
-                  "recommended": True
-              }
-          }]
-      }
-  )
+createTokenLocalMode().catch(console.error);
+```
 
-  result = response.json()
-  priority_fee = result["result"]["priorityFeeEstimate"]
-  print(f"Recommended priority fee: {priority_fee} micro-lamports")
-
-  # 3. Rebuild transaction with priority fee and send
-  ```
-
-  ```curl cURL theme={"system"}
-  curl -X POST "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "jsonrpc": "2.0",
-      "id": "1",
-      "method": "getPriorityFeeEstimate",
-      "params": [{
-        "transaction": "SERIALIZED_TRANSACTION_BASE58",
-        "options": {
-          "priorityLevel": "Medium",
-          "recommended": true
-        }
-      }]
-    }'
-  ```
 </CodeGroup>
