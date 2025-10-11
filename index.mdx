@@ -1,13 +1,13 @@
-
 ---
 title: "Blitzz API Documentation"
 description: "A fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Build transactions, send them, fetch metadata, and stream live events."
 ---
-Overview
+
+## Overview
 
 Blitzz is a simple yet lightning-fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live events.
 
-Base URLs
+## Base URLs
 
 HTTP Base URL: http://YOUR_HOST:80
 
@@ -17,11 +17,11 @@ WebSocket URL: ws://YOUR_HOST:8099/
 Replace `YOUR_HOST` with your server address in all examples.
 </Info>
 
-Authentication
+## Authentication
 
 No API key is required to use the Blitzz API. However, per-IP rate limits apply to each endpoint.
 
-Conventions
+## Conventions
 
 Public Keys: All public keys are represented as base58 strings.
 
@@ -39,7 +39,7 @@ Pool: pool must be one of "pump", "pump-amm", or "auto".
 
 Errors: Errors are returned in a standard JSON format.
 
-Local Trade Endpoint
+## Local Trade Endpoint
 
 Build an unsigned transaction that you can sign with your own wallet and send through your preferred RPC provider.
 
@@ -49,7 +49,7 @@ Path: /local-trade
 
 Rate Limit: 5 requests/second per IP
 
-Request Body
+### Request Body
 <ParamField body="type" type='"buy" | "sell" | "create" | "claimCreatorFees"' required>
 The type of transaction to build.
 </ParamField>
@@ -79,7 +79,7 @@ Required for `type="create"`. Contains `name`, `symbol`, and `uri`.
 Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
 </ParamField>
 
-Responses
+### Responses
 <ResponseExample>
 ```json 200 OK
 {
@@ -96,7 +96,7 @@ Responses
 ```
 </ResponseExample>
 
-Examples
+### Examples
 <Tabs>
 <Tab title="Buy on Pump Fun">
 <RequestExample>
@@ -159,7 +159,7 @@ curl -X POST http://YOUR_HOST:80/local-trade \
 The response contains a base64-encoded unsigned transaction. Decode it, sign it with your wallet, and send it using your RPC provider.
 </Check>
 
-Blitzz Mode Endpoint
+## Blitzz Mode Endpoint
 
 Build, sign, and send a transaction in a single API call. The API signs with the provided private key and waits up to 15 seconds for on-chain confirmation.
 
@@ -169,7 +169,7 @@ Path: /blitzz
 
 Rate Limit: 3 requests/second per IP
 
-Request Body
+### Request Body
 
 Includes all fields from /local-trade, plus:
 
@@ -181,7 +181,7 @@ The base58 private key used to sign the transaction and pay fees.
 **Handle with care**: Never expose your private keys in client-side code or public repositories. For a fully self-custodial flow, use the `/local-trade` endpoint.
 </Warning>
 
-Responses
+### Responses
 <ResponseExample>
 ```json 200 OK
 {
@@ -199,7 +199,7 @@ Responses
 ```
 </ResponseExample>
 
-Example: Auto-Buy
+### Example: Auto-Buy
 <RequestExample>
 ```bash cURL
 curl -X POST http://YOUR_HOST:80/blitzz \
@@ -216,7 +216,7 @@ curl -X POST http://YOUR_HOST:80/blitzz \
 ```
 </RequestExample>
 
-Metadata Endpoint
+## Metadata Endpoint
 
 Fetch on-chain Metaplex metadata for one or more tokens.
 
@@ -228,12 +228,12 @@ Rate Limit: 1 request/second per IP
 
 Limit: Up to 10 mints per request
 
-Request Body
+### Request Body
 <ParamField body="mints" type="array<string>" required>
 An array of 1 to 10 base58 mint addresses.
 </ParamField>
 
-Example Request
+### Example Request
 <RequestExample>
 ```bash cURL
 curl -X POST http://YOUR_HOST:80/metadata \
@@ -247,7 +247,7 @@ curl -X POST http://YOUR_HOST:80/metadata \
 ```
 </RequestExample>
 
-Example Response
+### Example Response
 <ResponseExample>
 ```json 200 OK
 {
@@ -280,7 +280,7 @@ Example Response
 ```
 </ResponseExample>
 
-Data WebSocket
+## Data WebSocket
 
 Stream real-time events, including trades, token creations, and migrations.
 
@@ -294,7 +294,7 @@ Max 2 connections per IP.
 
 You must subscribe to at least one filter within 10 seconds of connecting.
 
-Subscribing to Events
+### Subscribing to Events
 
 Send a JSON message to the WebSocket to subscribe to events. You can filter by mint, account, or event type.
 
@@ -321,7 +321,7 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
 </Accordion>
 </AccordionGroup>
 
-Unsubscribing from Events
+### Unsubscribing from Events
 <AccordionGroup>
 <Accordion title="Unsubscribe from mints">
 ```json
@@ -345,7 +345,7 @@ Unsubscribing from Events
 </Accordion>
 </AccordionGroup>
 
-Event Examples
+### Event Examples
 <Tabs>
 <Tab title="Trade (Pump Fun)">
 ```json
@@ -409,8 +409,8 @@ Event Examples
 </Tab>
 </Tabs>
 
-Errors and Limits
-Common HTTP Errors
+## Errors and Limits
+### Common HTTP Errors
 
 400 Bad Request: Invalid input (e.g., bad pubkey, amount <= 0).
 
@@ -424,7 +424,7 @@ Common HTTP Errors
 
 504 Gateway Timeout: Timed out waiting for transaction confirmation on /blitzz.
 
-Rate Limits
+### Rate Limits
 <CardGroup cols={2}>
 <Card title="/local-trade" icon="arrow-right-left">
 5 requests/second per IP
@@ -440,13 +440,12 @@ Rate Limits
 </Card>
 </CardGroup>
 
-Best Practices
+## Best Practices
 <Tip>
 - **Slippage**: Keep slippage reasonable to avoid failed trades.
 - **Pool Selection**:
-- `"pump"`: For bonding-curve trades.
-- `"pump-amm"`: For AMM trades.
-- `"auto"`: Let the API decide the best pool.
+  - `"pump"`: For bonding-curve trades.
+  - `"pump-amm"`: For AMM trades.
+  - `"auto"`: Let the API decide the best pool.
 - **Security**: For `/blitzz`, use a dedicated hot wallet with limited funds. For maximum security, use `/local-trade` to sign transactions locally.
 </Tip>
-```
