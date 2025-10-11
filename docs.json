@@ -2,11 +2,11 @@
     "$schema": "https://mintlify.com/docs.json",
     "theme": "mint",
     "name": "Blitzz",
-    "colors": {
-        "primary": "#fff163",
-        "light": "#fff163",
-        "dark": "#fff163"
-    },
+"colors": {
+    "primary": "#FFC107",
+    "light": "#FFD54F",
+    "dark": "#FFA000"
+},
     "favicon": "/favicon.svg",
     "navigation": {
         "tabs": [
