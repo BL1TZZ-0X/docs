@@ -1,7 +1,7 @@
 ---
-title: "Buying and Selling"
-description: "Here are some code examples for Buying and Selling Tokens using Blitzz API"
-icon: "chart-candlestick"
+title: "Claim Creator Fees"
+description: "Here are some code examples for Claiming Creator Fees using Blitzz API"
+icon: "hand-coins"
 ---
 
 ## Local Trade Mode
@@ -24,7 +24,7 @@ const BLITZZ_API: &str = "http://api.blitzz.fun";
 const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
 
 #[derive(Serialize)]
-struct BuyRequest {
+struct ClaimRequest {
     #[serde(rename = "type")]
     tx_type: String,
     pool: String,
@@ -45,19 +45,18 @@ struct TxResponse {
 #[tokio::main]
 async fn main() -> Result<()> {
     let mint = "YourTokenMintAddressHere";
-    let sol_amount = 0.01;
     
     let private_key = env::var("SOLANA_PRIVATE_KEY")?;
     let keypair = Keypair::from_base58_string(&private_key);
 
     // Build unsigned transaction
-    let request = BuyRequest {
-        tx_type: "buy".to_string(),
-        pool: "auto".to_string(),
+    let request = ClaimRequest {
+        tx_type: "claimCreatorFees".to_string(),
+        pool: "pump".to_string(),
         mint: mint.to_string(),
         payer: keypair.pubkey().to_string(),
-        amount: (sol_amount * 1_000_000_000.0) as u64,
-        slippage_pct: 1.0,
+        amount: 0,
+        slippage_pct: 0.0,
         prio_fee: 0.0005,
     };
 
@@ -82,7 +81,7 @@ async fn main() -> Result<()> {
     let rpc_client = RpcClient::new(RPC_URL);
     let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
 
-    println!("Buy successful! Signature: {}", signature);
+    println!("Creator fees claimed! Signature: {}", signature);
     Ok(())
 }
 ```
@@ -99,17 +98,17 @@ from solana.rpc.api import Client
 BLITZZ_API = "http://api.blitzz.fun"
 RPC_URL = "https://api.mainnet-beta.solana.com"
 
-def buy_token_local_mode(mint_address, sol_amount):
+def claim_creator_fees_local_mode(mint_address):
     keypair = Keypair.from_base58_string(os.environ["SOLANA_PRIVATE_KEY"])
     
     # Build unsigned transaction
     tx_res = requests.post(f"{BLITZZ_API}/local-trade", json={
-        "type": "buy",
-        "pool": "auto",
+        "type": "claimCreatorFees",
+        "pool": "pump",
         "mint": mint_address,
         "payer": str(keypair.pubkey()),
-        "amount": int(sol_amount * 1_000_000_000),
-        "slippage_pct": 1.0,
+        "amount": 0,
+        "slippage_pct": 0,
         "prioFee": 0.0005
     })
     
@@ -126,13 +125,12 @@ def buy_token_local_mode(mint_address, sol_amount):
     signature = client.send_transaction(transaction).value
     client.confirm_transaction(signature)
     
-    print(f"Buy successful! Signature: {signature}")
+    print(f"Creator fees claimed! Signature: {signature}")
     return signature
 
 if __name__ == "__main__":
     MINT = "YourTokenMintAddressHere"
-    SOL_AMOUNT = 0.01
-    buy_token_local_mode(MINT, SOL_AMOUNT)
+    claim_creator_fees_local_mode(MINT)
 ```
 
 
@@ -143,7 +141,7 @@ import bs58 from 'bs58';
 const BLITZZ_API = 'http://api.blitzz.fun';
 const RPC_URL = 'https://api.mainnet-beta.solana.com';
 
-async function buyTokenLocalMode(mintAddress, solAmount) {
+async function claimCreatorFeesLocalMode(mintAddress) {
   const keypair = Keypair.fromSecretKey(bs58.decode(process.env.SOLANA_PRIVATE_KEY));
   
   // Build unsigned transaction
@@ -151,12 +149,12 @@ async function buyTokenLocalMode(mintAddress, solAmount) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      type: 'buy',
-      pool: 'auto',
+      type: 'claimCreatorFees',
+      pool: 'pump',
       mint: mintAddress,
       payer: keypair.publicKey.toBase58(),
-      amount: solAmount * 1_000_000_000, // Convert SOL to lamports
-      slippage_pct: 1.0,
+      amount: 0,
+      slippage_pct: 0,
       prioFee: 0.0005
     })
   });
@@ -172,14 +170,13 @@ async function buyTokenLocalMode(mintAddress, solAmount) {
   const signature = await connection.sendTransaction(transaction);
   await connection.confirmTransaction(signature, 'confirmed');
 
-  console.log('Buy successful! Signature:', signature);
+  console.log('Creator fees claimed! Signature:', signature);
   return signature;
 }
 
 const MINT = 'YourTokenMintAddressHere';
-const SOL_AMOUNT = 0.01;
 
-buyTokenLocalMode(MINT, SOL_AMOUNT).catch(console.error);
+claimCreatorFeesLocalMode(MINT).catch(console.error);
 ```
 
 </CodeGroup>
@@ -197,7 +194,7 @@ use std::env;
 const BLITZZ_API: &str = "http://api.blitzz.fun";
 
 #[derive(Serialize)]
-struct SellRequest {
+struct ClaimRequest {
     #[serde(rename = "type")]
     tx_type: String,
     pool: String,
@@ -220,16 +217,15 @@ struct BlitzzResponse {
 #[tokio::main]
 async fn main() -> Result<()> {
     let mint = "YourTokenMintAddressHere";
-    let token_amount = 100.0;
     let private_key = env::var("SOLANA_PRIVATE_KEY")?;
 
     // Build, sign, and send in one call
-    let request = SellRequest {
-        tx_type: "sell".to_string(),
-        pool: "auto".to_string(),
+    let request = ClaimRequest {
+        tx_type: "claimCreatorFees".to_string(),
+        pool: "pump".to_string(),
         mint: mint.to_string(),
-        amount: (token_amount * 1_000_000.0) as u64,
-        slippage_pct: 1.0,
+        amount: 0,
+        slippage_pct: 0.0,
         prio_fee: 0.0005,
         private_key,
     };
@@ -247,7 +243,7 @@ async fn main() -> Result<()> {
         anyhow::bail!("API error: {}", error);
     }
 
-    println!("Sell successful! Status: {}", res.status.unwrap());
+    println!("Creator fees claimed! Status: {}", res.status.unwrap());
     println!("Signature: {}", res.signature.unwrap());
     Ok(())
 }
@@ -260,16 +256,16 @@ import requests
 
 BLITZZ_API = "http://api.blitzz.fun"
 
-def sell_token_blitzz_mode(mint_address, token_amount):
+def claim_creator_fees_blitzz_mode(mint_address):
     private_key = os.environ["SOLANA_PRIVATE_KEY"]
     
     # Build, sign, and send in one call
     res = requests.post(f"{BLITZZ_API}/blitzz", json={
-        "type": "sell",
-        "pool": "auto",
+        "type": "claimCreatorFees",
+        "pool": "pump",
         "mint": mint_address,
-        "amount": int(token_amount * 1_000_000),
-        "slippage_pct": 1.0,
+        "amount": 0,
+        "slippage_pct": 0,
         "prioFee": 0.0005,
         "privateKey": private_key
     })
@@ -278,14 +274,13 @@ def sell_token_blitzz_mode(mint_address, token_amount):
     if "error" in result:
         raise Exception(result["error"])
     
-    print(f"Sell successful! Status: {result['status']}")
+    print(f"Creator fees claimed! Status: {result['status']}")
     print(f"Signature: {result['signature']}")
     return result["signature"]
 
 if __name__ == "__main__":
     MINT = "YourTokenMintAddressHere"
-    TOKEN_AMOUNT = 100
-    sell_token_blitzz_mode(MINT, TOKEN_AMOUNT)
+    claim_creator_fees_blitzz_mode(MINT)
 ```
 
 
@@ -294,7 +289,7 @@ import bs58 from 'bs58';
 
 const BLITZZ_API = 'http://api.blitzz.fun';
 
-async function sellTokenBlitzzMode(mintAddress, tokenAmount) {
+async function claimCreatorFeesBlitzzMode(mintAddress) {
   const privateKey = bs58.encode(Buffer.from(process.env.SOLANA_PRIVATE_KEY, 'hex'));
   
   // Build, sign, and send in one call
@@ -302,11 +297,11 @@ async function sellTokenBlitzzMode(mintAddress, tokenAmount) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      type: 'sell',
-      pool: 'auto',
+      type: 'claimCreatorFees',
+      pool: 'pump',
       mint: mintAddress,
-      amount: tokenAmount * 1_000_000, // 6 decimals
-      slippage_pct: 1.0,
+      amount: 0,
+      slippage_pct: 0,
       prioFee: 0.0005,
       privateKey
     })
@@ -315,15 +310,14 @@ async function sellTokenBlitzzMode(mintAddress, tokenAmount) {
   const { status, signature, error } = await res.json();
   if (error) throw new Error(error);
 
-  console.log('Sell successful! Status:', status);
+  console.log('Creator fees claimed! Status:', status);
   console.log('Signature:', signature);
   return signature;
 }
 
 const MINT = 'YourTokenMintAddressHere';
-const TOKEN_AMOUNT = 100;
 
-sellTokenBlitzzMode(MINT, TOKEN_AMOUNT).catch(console.error);
+claimCreatorFeesBlitzzMode(MINT).catch(console.error);
 ```
 
 </CodeGroup>
