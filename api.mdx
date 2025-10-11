@@ -45,8 +45,12 @@ Build an unsigned transaction that you can sign with your own wallet and send th
 
 ### Request Body
 
+The request body varies depending on the transaction type:
+
+#### Buy Transaction
+
 <ParamField body="type" type="string" required>
-  The type of transaction to build. Must be one of: `"buy"`, `"sell"`, `"create"`, or `"claimCreatorFees"`.
+  Must be `"buy"`.
 </ParamField>
 
 <ParamField body="pool" type="string" required>
@@ -54,7 +58,7 @@ Build an unsigned transaction that you can sign with your own wallet and send th
 </ParamField>
 
 <ParamField body="mint" type="string" required>
-  The base58 mint address of the token (required for `buy` and `sell`).
+  The base58 mint address of the token.
 </ParamField>
 
 <ParamField body="payer" type="string" required>
@@ -62,8 +66,7 @@ Build an unsigned transaction that you can sign with your own wallet and send th
 </ParamField>
 
 <ParamField body="amount" type="number" required>
-  - For `buy`/`create`: The amount of SOL in lamports.
-  - For `sell`: The amount of tokens in base units (6 decimals).
+  The amount of SOL in lamports.
 </ParamField>
 
 <ParamField body="slippage_pct" type="number" required>
@@ -74,8 +77,94 @@ Build an unsigned transaction that you can sign with your own wallet and send th
   The priority fee in SOL (e.g., `0.0005`).
 </ParamField>
 
-<ParamField body="metadata" type="object">
-  Required for `type="create"`. Contains `name`, `symbol`, and `uri`.
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Sell Transaction
+
+<ParamField body="type" type="string" required>
+  Must be `"sell"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  The liquidity pool to use for the trade. Must be one of: `"pump"`, `"pump-amm"`, or `"auto"`.
+</ParamField>
+
+<ParamField body="mint" type="string" required>
+  The base58 mint address of the token.
+</ParamField>
+
+<ParamField body="payer" type="string" required>
+  The base58 public key of the fee payer.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount of tokens in base units (6 decimals).
+</ParamField>
+
+<ParamField body="slippage_pct" type="number" required>
+  The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Create Transaction
+
+<ParamField body="type" type="string" required>
+  Must be `"create"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  Must be `"pump"`.
+</ParamField>
+
+<ParamField body="payer" type="string" required>
+  The base58 public key of the fee payer.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount of SOL in lamports for the initial buy.
+</ParamField>
+
+<ParamField body="slippage_pct" type="number" required>
+  The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+
+<ParamField body="metadata" type="object" required>
+  Contains `name`, `symbol`, and `uri`.
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Claim Creator Fees Transaction
+
+<ParamField body="type" type="string" required>
+  Must be `"claimCreatorFees"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  Must be `"pump"`.
+</ParamField>
+
+<ParamField body="creator" type="string" required>
+  The base58 public key of the token creator claiming fees.
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.005`).
 </ParamField>
 
 <ParamField body="transferConfig" type="object">
@@ -110,7 +199,6 @@ curl -X POST http://api.blitzz.fun/local-trade \
   }'
 ```
 
-
 ```bash Sell on Pump AMM
 curl -X POST http://api.blitzz.fun/local-trade \
   -H 'content-type: application/json' \
@@ -124,7 +212,6 @@ curl -X POST http://api.blitzz.fun/local-trade \
     "prioFee": 0.0005
   }'
 ```
-
 
 ```bash Create a Token
 curl -X POST http://api.blitzz.fun/local-trade \
@@ -141,6 +228,17 @@ curl -X POST http://api.blitzz.fun/local-trade \
       "symbol": "MYT",
       "uri": "https://example.com/meta.json"
     }
+  }'
+```
+
+```bash Claim Creator Fees
+curl -X POST http://api.blitzz.fun/local-trade \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "claimCreatorFees",
+    "creator": "D89hHJT5Aqyx1trP6EnGY9jJUB3whgnq3aUvvCqedvzf",
+    "prioFee": 0.005,
+    "pool": "pump"
   }'
 ```
 
@@ -162,7 +260,7 @@ Build, sign, and send a transaction in a single API call. The API signs with the
 
 ### Request Body
 
-Includes all fields from `/local-trade`, plus:
+The request body varies depending on the transaction type. All transaction types include:
 
 <ParamField body="privateKey" type="string" required>
   The base58 private key used to sign the transaction and pay fees.
@@ -171,6 +269,130 @@ Includes all fields from `/local-trade`, plus:
 <Warning>
   **Handle with care:** Never expose your private keys in client-side code or public repositories. For a fully self-custodial flow, use the `/local-trade` endpoint.
 </Warning>
+
+#### Buy Transaction (Blitzz Mode)
+
+<ParamField body="type" type="string" required>
+  Must be `"buy"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  The liquidity pool to use. Must be one of: `"pump"`, `"pump-amm"`, or `"auto"`.
+</ParamField>
+
+<ParamField body="mint" type="string" required>
+  The base58 mint address of the token.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount of SOL in lamports.
+</ParamField>
+
+<ParamField body="slippage_pct" type="number" required>
+  The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+
+<ParamField body="privateKey" type="string" required>
+  The base58 private key.
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Sell Transaction (Blitzz Mode)
+
+<ParamField body="type" type="string" required>
+  Must be `"sell"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  The liquidity pool to use. Must be one of: `"pump"`, `"pump-amm"`, or `"auto"`.
+</ParamField>
+
+<ParamField body="mint" type="string" required>
+  The base58 mint address of the token.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount of tokens in base units (6 decimals).
+</ParamField>
+
+<ParamField body="slippage_pct" type="number" required>
+  The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+
+<ParamField body="privateKey" type="string" required>
+  The base58 private key.
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Create Transaction (Blitzz Mode)
+
+<ParamField body="type" type="string" required>
+  Must be `"create"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  Must be `"pump"`.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount of SOL in lamports for the initial buy.
+</ParamField>
+
+<ParamField body="slippage_pct" type="number" required>
+  The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+
+<ParamField body="metadata" type="object" required>
+  Contains `name`, `symbol`, and `uri`.
+</ParamField>
+
+<ParamField body="privateKey" type="string" required>
+  The base58 private key.
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+#### Claim Creator Fees Transaction (Blitzz Mode)
+
+<ParamField body="type" type="string" required>
+  Must be `"claimCreatorFees"`.
+</ParamField>
+
+<ParamField body="pool" type="string" required>
+  Must be `"pump"`.
+</ParamField>
+
+<ParamField body="prioFee" type="number" required>
+  The priority fee in SOL (e.g., `0.005`).
+</ParamField>
+
+<ParamField body="privateKey" type="string" required>
+  The base58 private key of the token creator claiming fees.
+</ParamField>
+
+<ParamField body="transferConfig" type="object">
+  Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
 
 ### Response
 
@@ -186,7 +408,7 @@ Includes all fields from `/local-trade`, plus:
   Descriptive error message (only present on error).
 </ResponseField>
 
-### Example
+### Examples
 
 <CodeGroup>
 
@@ -201,6 +423,17 @@ curl -X POST http://api.blitzz.fun/blitzz \
     "slippage_pct": 0.5,
     "prioFee": 0.0005,
     "privateKey": "YOUR_PRIVATE_KEY"
+  }'
+```
+
+```bash Claim Creator Fees
+curl -X POST http://api.blitzz.fun/blitzz \
+  -H 'content-type: application/json' \
+  -d '{
+    "type": "claimCreatorFees",
+    "privateKey": "YOUR_PRIVATE_KEY",
+    "prioFee": 0.005,
+    "pool": "pump"
   }'
 ```
 
@@ -249,7 +482,6 @@ curl -X POST http://api.blitzz.fun/metadata \
   }'
 ```
 
-
 ```json Response
 {
   "results": [
@@ -295,7 +527,6 @@ Stream real-time events, including trades, token creations, and migrations.
 - Max 2 connections per IP.
 - You must subscribe to at least one filter within 10 seconds of connecting.
 - Max Limit of 50 Pubkeys on the Mint and Account filter.
-
 
 ### Subscribing to Events
 
@@ -367,7 +598,6 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
 }
 ```
 
-
 ```json Trade (Pump AMM)
 {
   "signature": "SIG",
@@ -382,7 +612,6 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
   "pool": "pump-amm"
 }
 ```
-
 
 ```json Create (Pump Fun)
 {
@@ -399,7 +628,6 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
   "pool": "pump"
 }
 ```
-
 
 ```json Migrate (Pump Fun)
 {
