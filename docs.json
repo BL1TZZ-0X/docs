@@ -2,11 +2,11 @@
     "$schema": "https://mintlify.com/docs.json",
     "theme": "mint",
     "name": "Blitzz",
-"colors": {
-    "primary": "#FFC107",
-    "light": "#FFD54F",
-    "dark": "#FFA000"
-},
+    "colors": {
+        "primary": "#FFC107",
+        "light": "#FFD54F",
+        "dark": "#FFA000"
+    },
     "favicon": "/favicon.svg",
     "navigation": {
         "tabs": [
@@ -18,16 +18,7 @@
                         "pages": [
                             "index",
                             "api",
-                            "development"
-                        ]
-                    },
-                   
-                    {
-                        "group": "AI tools",
-                        "pages": [
-                            "ai-tools/cursor",
-                            "ai-tools/claude-code",
-                            "ai-tools/windsurf"
+                            "Self Hosting"
                         ]
                     }
                 ]
