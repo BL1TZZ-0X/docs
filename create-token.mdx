@@ -1,6 +1,7 @@
 ---
 title: "Token Creation"
 description: "Here are some code examples for creating tokens using Blitzz API "
+icon: "coins"
 ---
 
 ## Local Trade Mode
@@ -246,6 +247,220 @@ async function createTokenLocalMode() {
 }
 
 createTokenLocalMode().catch(console.error);
+```
+
+</CodeGroup>
+
+
+## Blitzz Mode
+
+```rust Rust
+use anyhow::Result;
+use reqwest::multipart::{Form, Part};
+use serde::{Deserialize, Serialize};
+use std::{env, fs};
+
+const BLITZZ_API: &str = "http://api.blitzz.fun";
+
+#[derive(Serialize)]
+struct CreateRequest {
+    #[serde(rename = "type")]
+    tx_type: String,
+    pool: String,
+    amount: u64,
+    slippage_pct: f64,
+    #[serde(rename = "prioFee")]
+    prio_fee: f64,
+    #[serde(rename = "privateKey")]
+    private_key: String,
+    metadata: Metadata,
+}
+
+#[derive(Serialize)]
+struct Metadata {
+    name: String,
+    symbol: String,
+    uri: String,
+}
+
+#[derive(Deserialize)]
+struct IpfsResponse {
+    #[serde(rename = "metadataUri")]
+    metadata_uri: String,
+}
+
+#[derive(Deserialize)]
+struct BlitzzResponse {
+    status: Option<String>,
+    signature: Option<String>,
+    error: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let private_key = env::var("SOLANA_PRIVATE_KEY")?;
+
+    // Upload metadata to IPFS
+    let image_bytes = fs::read("./token-image.png")?;
+    let form = Form::new()
+        .part("file", Part::bytes(image_bytes).file_name("token-image.png"))
+        .text("name", "My Token")
+        .text("symbol", "MTK")
+        .text("description", "A token created via Blitzz API")
+        .text("twitter", "https://twitter.com/mytoken")
+        .text("telegram", "https://t.me/mytoken")
+        .text("website", "https://mytoken.com")
+        .text("showName", "true");
+
+    let client = reqwest::Client::new();
+    let ipfs_res: IpfsResponse = client
+        .post("https://pump.fun/api/ipfs")
+        .multipart(form)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // Build, sign, and send in one call
+    let request = CreateRequest {
+        tx_type: "create".to_string(),
+        pool: "pump".to_string(),
+        amount: 10_000_000,
+        slippage_pct: 0.5,
+        prio_fee: 0.0005,
+        private_key,
+        metadata: Metadata {
+            name: "My Token".to_string(),
+            symbol: "MTK".to_string(),
+            uri: ipfs_res.metadata_uri,
+        },
+    };
+
+    let res: BlitzzResponse = client
+        .post(format!("{}/blitzz", BLITZZ_API))
+        .json(&request)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = res.error {
+        anyhow::bail!("API error: {}", error);
+    }
+
+    println!("Token created! Status: {}", res.status.unwrap());
+    println!("Signature: {}", res.signature.unwrap());
+    Ok(())
+}
+```
+
+
+```python Python
+import os
+import requests
+
+BLITZZ_API = "http://api.blitzz.fun"
+
+def create_token_blitzz_mode():
+    private_key = os.environ["SOLANA_PRIVATE_KEY"]
+    
+    # Upload metadata to IPFS
+    with open("./token-image.png", "rb") as f:
+        files = {"file": ("token-image.png", f, "image/png")}
+        data = {
+            "name": "My Token",
+            "symbol": "MTK",
+            "description": "A token created via Blitzz API",
+            "twitter": "https://twitter.com/mytoken",
+            "telegram": "https://t.me/mytoken",
+            "website": "https://mytoken.com",
+            "showName": "true"
+        }
+        ipfs_res = requests.post("https://pump.fun/api/ipfs", files=files, data=data)
+        metadata_uri = ipfs_res.json()["metadataUri"]
+    
+    # Build, sign, and send in one call
+    res = requests.post(f"{BLITZZ_API}/blitzz", json={
+        "type": "create",
+        "pool": "pump",
+        "amount": 10_000_000,
+        "slippage_pct": 0.5,
+        "prioFee": 0.0005,
+        "privateKey": private_key,
+        "metadata": {
+            "name": "My Token",
+            "symbol": "MTK",
+            "uri": metadata_uri
+        }
+    })
+    
+    result = res.json()
+    if "error" in result:
+        raise Exception(result["error"])
+    
+    print(f"Token created! Status: {result['status']}")
+    print(f"Signature: {result['signature']}")
+    return result["signature"]
+
+if __name__ == "__main__":
+    create_token_blitzz_mode()
+```
+
+
+```javascript Javascript
+import fs from 'fs/promises';
+import bs58 from 'bs58';
+
+const BLITZZ_API = 'http://api.blitzz.fun';
+
+async function createTokenBlitzzMode() {
+  const privateKey = bs58.encode(Buffer.from(process.env.SOLANA_PRIVATE_KEY, 'hex'));
+  
+  // Upload metadata to IPFS
+  const formData = new FormData();
+  formData.append('file', await fs.openAsBlob('./token-image.png'));
+  formData.append('name', 'My Token');
+  formData.append('symbol', 'MTK');
+  formData.append('description', 'A token created via Blitzz API');
+  formData.append('twitter', 'https://twitter.com/mytoken');
+  formData.append('telegram', 'https://t.me/mytoken');
+  formData.append('website', 'https://mytoken.com');
+  formData.append('showName', 'true');
+
+  const metadataRes = await fetch('https://pump.fun/api/ipfs', {
+    method: 'POST',
+    body: formData
+  });
+  const { metadataUri } = await metadataRes.json();
+
+  // Build, sign, and send in one call
+  const res = await fetch(`${BLITZZ_API}/blitzz`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'create',
+      pool: 'pump',
+      amount: 10000000, // 0.01 SOL initial buy
+      slippage_pct: 0.5,
+      prioFee: 0.0005,
+      privateKey,
+      metadata: {
+        name: 'My Token',
+        symbol: 'MTK',
+        uri: metadataUri
+      }
+    })
+  });
+
+  const { status, signature, error } = await res.json();
+  if (error) throw new Error(error);
+
+  console.log('Token created! Status:', status);
+  console.log('Signature:', signature);
+  return signature;
+}
+
+createTokenBlitzzMode().catch(console.error);
 ```
 
 </CodeGroup>
