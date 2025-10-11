@@ -1,97 +1,452 @@
+
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Blitzz API Documentation"
+description: "A fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Build transactions, send them, fetch metadata, and stream live events."
 ---
+Overview
 
-## Setting up
+Blitzz is a simple yet lightning-fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live events.
 
-Get your documentation site up and running in minutes.
+Base URLs
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
+HTTP Base URL: http://YOUR_HOST:80
+
+WebSocket URL: ws://YOUR_HOST:8099/
+
+<Info>
+Replace `YOUR_HOST` with your server address in all examples.
+</Info>
+
+Authentication
+
+No API key is required to use the Blitzz API. However, per-IP rate limits apply to each endpoint.
+
+Conventions
+
+Public Keys: All public keys are represented as base58 strings.
+
+Amounts:
+
+amount for buy or create is specified in lamports (1 SOL = 1,000,000,000 lamports).
+
+amount for sell is specified in token base units (6 decimals).
+
+Slippage: slippage_pct is a percentage (e.g., 0.5 means 0.5%).
+
+Priority Fee: prioFee is the priority fee in SOL (e.g., 0.0005). Keep it between 0.0 and 0.5 SOL.
+
+Pool: pool must be one of "pump", "pump-amm", or "auto".
+
+Errors: Errors are returned in a standard JSON format: { "error": "message" }.
+
+Local Trade Endpoint
+
+Build an unsigned transaction that you can sign with your own wallet and send through your preferred RPC provider.
+
+Method: POST
+
+Path: /local-trade
+
+Rate Limit: 5 requests/second per IP
+
+Request Body
+<ParamField body="type" type='"buy" | "sell" | "create" | "claimCreatorFees"' required>
+The type of transaction to build.
+</ParamField>
+<ParamField body="pool" type='"pump" | "pump-amm" | "auto"' required>
+The liquidity pool to use for the trade.
+</ParamField>
+<ParamField body="mint" type="string" required>
+The base58 mint address of the token (required for `buy` and `sell`).
+</ParamField>
+<ParamField body="payer" type="string" required>
+The base58 public key of the fee payer.
+</ParamField>
+<ParamField body="amount" type="number" required>
+- For `buy`/`create`: The amount of SOL in lamports.
+- For `sell`: The amount of tokens in base units (6 decimals).
+</ParamField>
+<ParamField body="slippage_pct" type="number" required>
+The slippage tolerance as a percentage (e.g., `0.5` for 0.5%).
+</ParamField>
+<ParamField body="prioFee" type="number" required>
+The priority fee in SOL (e.g., `0.0005`).
+</ParamField>
+<ParamField body="metadata" type="object">
+Required for `type="create"`. Contains `name`, `symbol`, and `uri`.
+</ParamField>
+<ParamField body="transferConfig" type="object">
+Optional configuration to transfer SOL in the same transaction. Contains `pubkey` (base58) and `lamports` (string).
+</ParamField>
+
+Responses
+<ResponseExample>
+```json 200 OK
+{
+"tx": "<base64-encoded-unsigned-transaction>"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json 4xx/5xx Error
+{
+"error": "Descriptive error message"
+}
+```
+</ResponseExample>
+
+Examples
+<Tabs>
+<Tab title="Buy on Pump Fun">
+<RequestExample>
+```bash cURL
+curl -X POST http://YOUR_HOST:80/local-trade \
+-H 'content-type: application/json' \
+-d '{
+"type": "buy",
+"pool": "pump",
+"mint": "MINT_ADDRESS",
+"payer": "PAYER_ADDRESS",
+"amount": 10000000,
+"slippage_pct": 0.5,
+"prioFee": 0.0005
+}'
+```
+</RequestExample>
+</Tab>
+<Tab title="Sell on Pump AMM">
+<RequestExample>
+```bash cURL
+curl -X POST http://YOUR_HOST:80/local-trade \
+-H 'content-type: application/json' \
+-d '{
+"type": "sell",
+"pool": "pump-amm",
+"mint": "MINT_ADDRESS",
+"payer": "PAYER_ADDRESS",
+"amount": 250000000,
+"slippage_pct": 0.5,
+"prioFee": 0.0005
+}'
+```
+</RequestExample>
+</Tab>
+<Tab title="Create a Token">
+<RequestExample>
+```bash cURL
+curl -X POST http://YOUR_HOST:80/local-trade \
+-H 'content-type: application/json' \
+-d '{
+"type": "create",
+"pool": "pump",
+"payer": "PAYER_ADDRESS",
+"amount": 10000000,
+"slippage_pct": 0.5,
+"prioFee": 0.0005,
+"metadata": {
+"name": "My Token",
+"symbol": "MYT",
+"uri": "https://example.com/meta.json"
+}
+}'
+```
+</RequestExample>
+</Tab>
+</Tabs>
+
+<Check>
+The response contains a base64-encoded unsigned transaction. Decode it, sign it with your wallet, and send it using your RPC provider.
+</Check>
+
+Blitzz Mode Endpoint
+
+Build, sign, and send a transaction in a single API call. The API signs with the provided private key and waits up to 15 seconds for on-chain confirmation.
+
+Method: POST
+
+Path: /blitzz
+
+Rate Limit: 3 requests/second per IP
+
+Request Body
+
+Includes all fields from /local-trade, plus:
+
+<ParamField body="privateKey" type="string" required>
+The base58 private key used to sign the transaction and pay fees.
+</ParamField>
+
+<Warning>
+**Handle with care**: Never expose your private keys in client-side code or public repositories. For a fully self-custodial flow, use the `/local-trade` endpoint.
+</Warning>
+
+Responses
+<ResponseExample>
+```json 200 OK
+{
+"status": "success",
+"signature": "<transaction_signature>"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json 4xx/5xx Error
+{
+"error": "Descriptive error message"
+}
+```
+</ResponseExample>
+
+Example: Auto-Buy
+<RequestExample>
+```bash cURL
+curl -X POST http://YOUR_HOST:80/blitzz \
+-H 'content-type: application/json' \
+-d '{
+"type": "buy",
+"pool": "auto",
+"mint": "MINT_ADDRESS",
+"amount": 10000000,
+"slippage_pct": 0.5,
+"prioFee": 0.0005,
+"privateKey": "YOUR_PRIVATE_KEY"
+}'
+```
+</RequestExample>
+
+Metadata Endpoint
+
+Fetch on-chain Metaplex metadata for one or more tokens.
+
+Method: POST
+
+Path: /metadata
+
+Rate Limit: 1 request/second per IP
+
+Limit: Up to 10 mints per request
+
+Request Body
+<ParamField body="mints" type="array<string>" required>
+An array of 1 to 10 base58 mint addresses.
+</ParamField>
+
+Example Request
+<RequestExample>
+```bash cURL
+curl -X POST http://YOUR_HOST:80/metadata \
+-H 'content-type: application/json' \
+-d '{
+"mints": [
+"MINT_ADDRESS_1",
+"MINT_ADDRESS_2"
+]
+}'
+```
+</RequestExample>
+
+Example Response
+<ResponseExample>
+```json 200 OK
+{
+"results": [
+{
+"mint": "MINT_ADDRESS_1",
+"metadata_pda": "META_PDA",
+"update_authority": "UPDATE_AUTH",
+"data": {
+"name": "My Token",
+"symbol": "MYT",
+"uri": "https://...",
+"seller_fee_basis_points": 500,
+"creators": [
+{ "address": "CREATOR1", "verified": true, "share": 100 }
+]
+},
+"primary_sale_happened": true,
+"is_mutable": false,
+"edition_nonce": 255,
+"token_standard": 4,
+"collection": { "verified": true, "key": "COLLECTION_MINT" },
+"uses": { "use_method": 2, "remaining": 0, "total": 0 }
+}
+],
+"errors": [
+{ "mint": "MINT_ADDRESS_2", "error": "account not found" }
+]
+}
+```
+</ResponseExample>
+
+Data WebSocket
+
+Stream real-time events, including trades, token creations, and migrations.
+
+URL: ws://YOUR_HOST:8099/
+
+Path: /
+
+Limits:
+
+Max 2 connections per IP.
+
+You must subscribe to at least one filter within 10 seconds of connecting.
+
+Subscribing to Events
+
+Send a JSON message to the WebSocket to subscribe to events. You can filter by mint, account, or event type.
+
+<AccordionGroup>
+<Accordion title="Subscribe to mints">
+```json
+{ "method": "subscribeFilterMint", "pubkeys": ["MINT1", "MINT2"] }
+```
+</Accordion>
+<Accordion title="Subscribe to accounts (trader/creator)">
+```json
+{ "method": "subscribeFilterAccount", "pubkeys": ["ACCOUNT1"] }
+```
+</Accordion>
+<Accordion title="Subscribe to new token creations">
+```json
+{ "method": "subscribeNewCreation" }
+```
+</Accordion>
+<Accordion title="Subscribe to migration events">
+```json
+{ "method": "subscribeMigrations" }
+```
+</Accordion>
+</AccordionGroup>
+
+Unsubscribing from Events
+<AccordionGroup>
+<Accordion title="Unsubscribe from mints">
+```json
+{ "method": "unsubscribeFilterMint", "pubkeys": ["MINT1"] }
+```
+</Accordion>
+<Accordion title="Unsubscribe from accounts">
+```json
+{ "method": "unsubscribeFilterAccount", "pubkeys": ["ACCOUNT1"] }
+```
+</Accordion>
+<Accordion title="Unsubscribe from new creations">
+```json
+{ "method": "unsubscribeNewCreation" }
+```
+</Accordion>
+<Accordion title="Unsubscribe from migrations">
+```json
+{ "method": "unsubscribeMigrations" }
+```
+</Accordion>
+</AccordionGroup>
+
+Event Examples
+<Tabs>
+<Tab title="Trade (Pump Fun)">
+```json
+{
+"signature": "SIG",
+"mint": "MINT",
+"traderPublicKey": "TRADER",
+"txType": "buy",
+"tokenAmount": 123.456,
+"solAmount": 0.123,
+"virtualSolReserves": 123456789,
+"virtualTokenReserves": 987654321,
+"pool": "pump"
+}
+```
+</Tab>
+<Tab title="Trade (Pump AMM)">
+```json
+{
+"signature": "SIG",
+"mint": "MINT",
+"traderPublicKey": "TRADER",
+"txType": "sell",
+"tokenAmount": 10.0,
+"solAmount": 0.05,
+"poolBaseTokenReserves": 100000000,
+"poolQuoteTokenReserves": 500000000,
+"poolAccount": "POOL",
+"pool": "pump-amm"
+}
+```
+</Tab>
+<Tab title="Create (Pump Fun)">
+```json
+{
+"signature": "SIG",
+"mint": "MINT",
+"creator": "CREATOR",
+"txType": "create",
+"initialBuy": 100.0,
+"solAmount": 0.5,
+"bondingCurve": "BC_PDA",
+"name": "My Token",
+"symbol": "MYT",
+"uri": "https://...",
+"pool": "pump"
+}
+```
+</Tab>
+<Tab title="Migrate (Pump Fun)">
+```json
+{
+"signature": "SIG",
+"txType": "migrate",
+"mint": "MINT",
+"lp_mint": "LP_MINT",
+"poolAccount": "POOL",
+"pool": "pump"
+}
+```
+</Tab>
+</Tabs>
+
+Errors and Limits
+Common HTTP Errors
+
+400 Bad Request: Invalid input (e.g., bad pubkey, amount <= 0).
+
+404 Not Found: Item not found (e.g., token or pool does not exist).
+
+429 Too Many Requests: Rate limit exceeded.
+
+500 Internal Server Error / 502 Bad Gateway: Server or upstream error.
+
+503 Service Unavailable: Blockhash is temporarily unavailable.
+
+504 Gateway Timeout: Timed out waiting for transaction confirmation on /blitzz.
+
+Rate Limits
+<CardGroup cols={2}>
+<Card title="/local-trade" icon="arrow-right-left">
+5 requests/second per IP
 </Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+<Card title="/blitzz" icon="bolt">
+3 requests/second per IP
 </Card>
+<Card title="/metadata" icon="tags">
+1 request/second per IP (10 mints max)
+</Card>
+<Card title="WebSocket" icon="circle-nodes">
+2 connections per IP
+</Card>
+</CardGroup>
+
+Best Practices
+<Tip>
+- **Slippage**: Keep slippage reasonable to avoid failed trades.
+- **Pool Selection**:
+- `"pump"`: For bonding-curve trades.
+- `"pump-amm"`: For AMM trades.
+- `"auto"`: Let the API decide the best pool.
+- **Security**: For `/blitzz`, use a dedicated hot wallet with limited funds. For maximum security, use `/local-trade` to sign transactions locally.
+</Tip>
+```
