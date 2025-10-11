@@ -1,20 +1,29 @@
 ---
-title: 'Self Hosting'
-description: 'Self Host Blitzz API on your own infrastructure'
+title: "Self Hosting"
+description: "Self Host Blitzz API on your own infrastructure"
 icon: "server"
 ---
 
 <Info>
   **Prerequisites**:
-  - a gRPC Connection
+
+  - a gRPC Connection. We recommend [Shyft.to](https://shyft.to/)
   - An RPC Node with atleast 20 Requests Per Second limit (More Recommended for Higher Workloads)
   - A Ubuntu or Windows Machine to host on
 </Info>
 
 ## Download
+
 You can download the binaries for Blitzz API from this Github repo Here.
 
 <Warning>
   **Only Local Trades:** The Self hosted version of Blitzz API only supports Local Transactions. Blitzz Mode is not present. Other features like the Data Websocket and Metadata endpoint are present without any limits.
 </Warning>
 
+## Running
+
+The binary accepts the gRPC Endpoint, gRPC x-token and the RPC url as command line arguments
+
+```bash
+./blitzz-api --endpoint https://your-grpc-endpoint.com --x-token 012 (add a random token if not required) --rpc-url https://your-rpc-url.com
+```
