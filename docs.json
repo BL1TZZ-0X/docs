@@ -24,7 +24,8 @@
                   {
                     "group": "Code Examples",
                     "pages": [
-                      "create-token"
+                      "create-token",
+                      "trade"
                     ]
                   }
                 ]

@@ -1,0 +1,331 @@
+---
+title: "Buying and Selling"
+description: "Here are some code examples for creating tokens using Blitzz API "
+icon: "chart-candlestick"
+---
+
+## Local Trade Mode
+
+<Check>
+    You can also use transferConfig in your requests to /local-trade if you want to send through a transaction processor (e.g. Astralane, Jito, Helius Sender etc)
+</Check>
+
+<CodeGroup>
+
+```rust Rust
+use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{signature::Keypair, signer::Signer, transaction::VersionedTransaction};
+use std::env;
+
+const BLITZZ_API: &str = "http://api.blitzz.fun";
+const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
+
+#[derive(Serialize)]
+struct BuyRequest {
+    #[serde(rename = "type")]
+    tx_type: String,
+    pool: String,
+    mint: String,
+    payer: String,
+    amount: u64,
+    slippage_pct: f64,
+    #[serde(rename = "prioFee")]
+    prio_fee: f64,
+}
+
+#[derive(Deserialize)]
+struct TxResponse {
+    tx: Option<String>,
+    error: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mint = "YourTokenMintAddressHere";
+    let sol_amount = 0.01;
+    
+    let private_key = env::var("SOLANA_PRIVATE_KEY")?;
+    let keypair = Keypair::from_base58_string(&private_key);
+
+    // Build unsigned transaction
+    let request = BuyRequest {
+        tx_type: "buy".to_string(),
+        pool: "auto".to_string(),
+        mint: mint.to_string(),
+        payer: keypair.pubkey().to_string(),
+        amount: (sol_amount * 1_000_000_000.0) as u64,
+        slippage_pct: 1.0,
+        prio_fee: 0.0005,
+    };
+
+    let client = reqwest::Client::new();
+    let tx_res: TxResponse = client
+        .post(format!("{}/local-trade", BLITZZ_API))
+        .json(&request)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = tx_res.error {
+        anyhow::bail!("API error: {}", error);
+    }
+
+    // Sign and send transaction
+    let tx_bytes = BASE64.decode(tx_res.tx.unwrap())?;
+    let mut transaction: VersionedTransaction = bincode::deserialize(&tx_bytes)?;
+    transaction.sign(&[&keypair], transaction.message.recent_blockhash());
+
+    let rpc_client = RpcClient::new(RPC_URL);
+    let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
+
+    println!("Buy successful! Signature: {}", signature);
+    Ok(())
+}
+```
+
+
+```python Python
+import os
+import base64
+import requests
+from solders.keypair import Keypair
+from solders.transaction import VersionedTransaction
+from solana.rpc.api import Client
+
+BLITZZ_API = "http://api.blitzz.fun"
+RPC_URL = "https://api.mainnet-beta.solana.com"
+
+def buy_token_local_mode(mint_address, sol_amount):
+    keypair = Keypair.from_base58_string(os.environ["SOLANA_PRIVATE_KEY"])
+    
+    # Build unsigned transaction
+    tx_res = requests.post(f"{BLITZZ_API}/local-trade", json={
+        "type": "buy",
+        "pool": "auto",
+        "mint": mint_address,
+        "payer": str(keypair.pubkey()),
+        "amount": int(sol_amount * 1_000_000_000),
+        "slippage_pct": 1.0,
+        "prioFee": 0.0005
+    })
+    
+    result = tx_res.json()
+    if "error" in result:
+        raise Exception(result["error"])
+    
+    # Sign and send transaction
+    tx_bytes = base64.b64decode(result["tx"])
+    transaction = VersionedTransaction.from_bytes(tx_bytes)
+    transaction.sign([keypair])
+    
+    client = Client(RPC_URL)
+    signature = client.send_transaction(transaction).value
+    client.confirm_transaction(signature)
+    
+    print(f"Buy successful! Signature: {signature}")
+    return signature
+
+if __name__ == "__main__":
+    MINT = "YourTokenMintAddressHere"
+    SOL_AMOUNT = 0.01
+    buy_token_local_mode(MINT, SOL_AMOUNT)
+```
+
+
+```javascript Javascript
+import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+const BLITZZ_API = 'http://api.blitzz.fun';
+const RPC_URL = 'https://api.mainnet-beta.solana.com';
+
+async function buyTokenLocalMode(mintAddress, solAmount) {
+  const keypair = Keypair.fromSecretKey(bs58.decode(process.env.SOLANA_PRIVATE_KEY));
+  
+  // Build unsigned transaction
+  const txRes = await fetch(`${BLITZZ_API}/local-trade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'buy',
+      pool: 'auto',
+      mint: mintAddress,
+      payer: keypair.publicKey.toBase58(),
+      amount: solAmount * 1_000_000_000, // Convert SOL to lamports
+      slippage_pct: 1.0,
+      prioFee: 0.0005
+    })
+  });
+
+  const { tx, error } = await txRes.json();
+  if (error) throw new Error(error);
+
+  // Sign and send transaction
+  const connection = new Connection(RPC_URL);
+  const transaction = VersionedTransaction.deserialize(Buffer.from(tx, 'base64'));
+  transaction.sign([keypair]);
+
+  const signature = await connection.sendTransaction(transaction);
+  await connection.confirmTransaction(signature, 'confirmed');
+
+  console.log('Buy successful! Signature:', signature);
+  return signature;
+}
+
+const MINT = 'YourTokenMintAddressHere';
+const SOL_AMOUNT = 0.01;
+
+buyTokenLocalMode(MINT, SOL_AMOUNT).catch(console.error);
+```
+
+</CodeGroup>
+
+
+## Blitzz Mode
+
+<CodeGroup>
+  
+```rust Rust
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::env;
+
+const BLITZZ_API: &str = "http://api.blitzz.fun";
+
+#[derive(Serialize)]
+struct SellRequest {
+    #[serde(rename = "type")]
+    tx_type: String,
+    pool: String,
+    mint: String,
+    amount: u64,
+    slippage_pct: f64,
+    #[serde(rename = "prioFee")]
+    prio_fee: f64,
+    #[serde(rename = "privateKey")]
+    private_key: String,
+}
+
+#[derive(Deserialize)]
+struct BlitzzResponse {
+    status: Option<String>,
+    signature: Option<String>,
+    error: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let mint = "YourTokenMintAddressHere";
+    let token_amount = 100.0;
+    let private_key = env::var("SOLANA_PRIVATE_KEY")?;
+
+    // Build, sign, and send in one call
+    let request = SellRequest {
+        tx_type: "sell".to_string(),
+        pool: "auto".to_string(),
+        mint: mint.to_string(),
+        amount: (token_amount * 1_000_000.0) as u64,
+        slippage_pct: 1.0,
+        prio_fee: 0.0005,
+        private_key,
+    };
+
+    let client = reqwest::Client::new();
+    let res: BlitzzResponse = client
+        .post(format!("{}/blitzz", BLITZZ_API))
+        .json(&request)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = res.error {
+        anyhow::bail!("API error: {}", error);
+    }
+
+    println!("Sell successful! Status: {}", res.status.unwrap());
+    println!("Signature: {}", res.signature.unwrap());
+    Ok(())
+}
+```
+
+
+```python Python
+import os
+import requests
+
+BLITZZ_API = "http://api.blitzz.fun"
+
+def sell_token_blitzz_mode(mint_address, token_amount):
+    private_key = os.environ["SOLANA_PRIVATE_KEY"]
+    
+    # Build, sign, and send in one call
+    res = requests.post(f"{BLITZZ_API}/blitzz", json={
+        "type": "sell",
+        "pool": "auto",
+        "mint": mint_address,
+        "amount": int(token_amount * 1_000_000),
+        "slippage_pct": 1.0,
+        "prioFee": 0.0005,
+        "privateKey": private_key
+    })
+    
+    result = res.json()
+    if "error" in result:
+        raise Exception(result["error"])
+    
+    print(f"Sell successful! Status: {result['status']}")
+    print(f"Signature: {result['signature']}")
+    return result["signature"]
+
+if __name__ == "__main__":
+    MINT = "YourTokenMintAddressHere"
+    TOKEN_AMOUNT = 100
+    sell_token_blitzz_mode(MINT, TOKEN_AMOUNT)
+```
+
+
+```javascript Javascript
+import bs58 from 'bs58';
+
+const BLITZZ_API = 'http://api.blitzz.fun';
+
+async function sellTokenBlitzzMode(mintAddress, tokenAmount) {
+  const privateKey = bs58.encode(Buffer.from(process.env.SOLANA_PRIVATE_KEY, 'hex'));
+  
+  // Build, sign, and send in one call
+  const res = await fetch(`${BLITZZ_API}/blitzz`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'sell',
+      pool: 'auto',
+      mint: mintAddress,
+      amount: tokenAmount * 1_000_000, // 6 decimals
+      slippage_pct: 1.0,
+      prioFee: 0.0005,
+      privateKey
+    })
+  });
+
+  const { status, signature, error } = await res.json();
+  if (error) throw new Error(error);
+
+  console.log('Sell successful! Status:', status);
+  console.log('Signature:', signature);
+  return signature;
+}
+
+const MINT = 'YourTokenMintAddressHere';
+const TOKEN_AMOUNT = 100;
+
+sellTokenBlitzzMode(MINT, TOKEN_AMOUNT).catch(console.error);
+```
+
+</CodeGroup>
+
+
