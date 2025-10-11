@@ -414,7 +414,7 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
 
 ### Common HTTP Errors
 
-- **400 Bad Request:** Invalid input (e.g., bad pubkey, amount <= 0).
+- **400 Bad Request:** Invalid input (e.g., bad pubkey, amount < 0).
 - **404 Not Found:** Item not found (e.g., token or pool does not exist).
 - **429 Too Many Requests:** Rate limit exceeded.
 - **500 Internal Server Error / 502 Bad Gateway:** Server or upstream error.
