@@ -1,12 +1,12 @@
 ---
 title: "Blitzz API Documentation"
-description: "A fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Build transactions, send them, fetch metadata, and stream live events."
+description: "A fast API for trading and market data for tokens on Pump Fun and Pump AMM."
 icon: "gear"
 ---
 
 ## Overview
 
-Blitzz is a simple yet lightning-fast API for trading and market data on Solana tokens, powered by Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live events.
+Blitzz is a simple yet lightning-fast API for trading and market data tokens on Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live human readable events.
 
 ## Base URLs
 
@@ -29,13 +29,13 @@ No API key is required to use the Blitzz API. However, per-IP rate limits apply 
   - `amount` for buy or create is specified in lamports (1 SOL = 1,000,000,000 lamports).
   - `amount` for sell is specified in token base units (6 decimals).
 - **Slippage:** `slippage_pct` is a percentage (e.g., 0.5 means 0.5%).
-- **Priority Fee:** `prioFee` is the priority fee in SOL (e.g., 0.0005). Keep it between 0.0 and 0.5 SOL.
+- **Priority Fee:** `prioFee` is the priority fee in SOL (e.g., 0.0005). 
 - **Pool:** `pool` must be one of "pump", "pump-amm", or "auto".
 - **Errors:** Errors are returned in a standard JSON format.
 
 ## Local Trade Endpoint
 
-Build an unsigned transaction that you can sign with your own wallet and send through your preferred RPC provider.
+Build an unsigned transaction that you can sign with your own wallet and send through your preferred RPC endpoint or Transaction Processor (e.g., Astralane).
 
 **Method:** `POST`
 
@@ -296,6 +296,7 @@ Stream real-time events, including trades, token creations, and migrations.
 - You must subscribe to at least one filter within 10 seconds of connecting.
 - Max Limit of 50 Pubkeys on the Mint and Account filter.
 
+
 ### Subscribing to Events
 
 Send a JSON message to the WebSocket to subscribe to events. You can filter by mint, account, or event type.
@@ -448,6 +449,6 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
   - **Pool Selection:**
     - `"pump"`: For bonding-curve trades.
     - `"pump-amm"`: For AMM trades.
-    - `"auto"`: Let the API automatically choose the pool.
+    - `"auto"`: Let the API automatically choose the pool. This can be slower sometimes.
   - **Security:** For `/blitzz`, use a dedicated hot wallet with limited funds incase of any leak. For maximum security and control, use `/local-trade` to sign transactions locally.
 </Tip>
