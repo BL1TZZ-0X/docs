@@ -1,0 +1,179 @@
+---
+title: "Token Creation"
+description: "Here are some code examples for creating tokens using Blitzz API "
+---
+
+## Local Trade Mode
+
+```rust local_trade.rs lines icon="rust"
+use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use reqwest::multipart::{Form, Part};
+use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{signature::Keypair, signer::Signer, transaction::VersionedTransaction};
+use std::{env, fs};
+
+const BLITZZ_API: &str = "http://api.blitzz.fun";
+const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
+
+#[derive(Serialize)]
+struct CreateRequest {
+    #[serde(rename = "type")]
+    tx_type: String,
+    pool: String,
+    payer: String,
+    amount: u64,
+    slippage_pct: f64,
+    #[serde(rename = "prioFee")]
+    prio_fee: f64,
+    metadata: Metadata,
+}
+
+#[derive(Serialize)]
+struct Metadata {
+    name: String,
+    symbol: String,
+    uri: String,
+}
+
+#[derive(Deserialize)]
+struct IpfsResponse {
+    #[serde(rename = "metadataUri")]
+    metadata_uri: String,
+}
+
+#[derive(Deserialize)]
+struct TxResponse {
+    tx: Option<String>,
+    error: Option<String>,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let private_key = env::var("SOLANA_PRIVATE_KEY")?;
+    let keypair = Keypair::from_base58_string(&private_key);
+
+    // Upload metadata to IPFS
+    let image_bytes = fs::read("./token-image.png")?;
+    let form = Form::new()
+        .part("file", Part::bytes(image_bytes).file_name("token-image.png"))
+        .text("name", "My Token")
+        .text("symbol", "MTK")
+        .text("description", "A token created via Blitzz API")
+        .text("twitter", "https://twitter.com/mytoken")
+        .text("telegram", "https://t.me/mytoken")
+        .text("website", "https://mytoken.com")
+        .text("showName", "true");
+
+    let client = reqwest::Client::new();
+    let ipfs_res: IpfsResponse = client
+        .post("https://pump.fun/api/ipfs")
+        .multipart(form)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    // Build unsigned transaction
+    let request = CreateRequest {
+        tx_type: "create".to_string(),
+        pool: "pump".to_string(),
+        payer: keypair.pubkey().to_string(),
+        amount: 10_000_000,
+        slippage_pct: 0.5,
+        prio_fee: 0.0005,
+        metadata: Metadata {
+            name: "My Token".to_string(),
+            symbol: "MTK".to_string(),
+            uri: ipfs_res.metadata_uri,
+        },
+    };
+
+    let tx_res: TxResponse = client
+        .post(format!("{}/local-trade", BLITZZ_API))
+        .json(&request)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    if let Some(error) = tx_res.error {
+        anyhow::bail!("API error: {}", error);
+    }
+
+    // Sign and send transaction
+    let tx_bytes = BASE64.decode(tx_res.tx.unwrap())?;
+    let mut transaction: VersionedTransaction = bincode::deserialize(&tx_bytes)?;
+    transaction.sign(&[&keypair], transaction.message.recent_blockhash());
+
+    let rpc_client = RpcClient::new(RPC_URL);
+    let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
+
+    println!("Token created! Signature: {}", signature);
+    Ok(())
+}
+```
+```python local_trade.py lines icon="python"
+import os
+import base64
+import requests
+from solders.keypair import Keypair
+from solders.transaction import VersionedTransaction
+from solana.rpc.api import Client
+
+BLITZZ_API = "http://api.blitzz.fun"
+RPC_URL = "https://api.mainnet-beta.solana.com"
+
+def create_token_local_mode():
+    keypair = Keypair.from_base58_string(os.environ["SOLANA_PRIVATE_KEY"])
+    
+    # Upload metadata to IPFS
+    with open("./token-image.png", "rb") as f:
+        files = {"file": ("token-image.png", f, "image/png")}
+        data = {
+            "name": "My Token",
+            "symbol": "MTK",
+            "description": "A token created via Blitzz API",
+            "twitter": "https://twitter.com/mytoken",
+            "telegram": "https://t.me/mytoken",
+            "website": "https://mytoken.com",
+            "showName": "true"
+        }
+        ipfs_res = requests.post("https://pump.fun/api/ipfs", files=files, data=data)
+        metadata_uri = ipfs_res.json()["metadataUri"]
+    
+    # Build unsigned transaction
+    tx_res = requests.post(f"{BLITZZ_API}/local-trade", json={
+        "type": "create",
+        "pool": "pump",
+        "payer": str(keypair.pubkey()),
+        "amount": 10_000_000,
+        "slippage_pct": 0.5,
+        "prioFee": 0.0005,
+        "metadata": {
+            "name": "My Token",
+            "symbol": "MTK",
+            "uri": metadata_uri
+        }
+    })
+    
+    result = tx_res.json()
+    if "error" in result:
+        raise Exception(result["error"])
+    
+    # Sign and send transaction
+    tx_bytes = base64.b64decode(result["tx"])
+    transaction = VersionedTransaction.from_bytes(tx_bytes)
+    transaction.sign([keypair])
+    
+    client = Client(RPC_URL)
+    signature = client.send_transaction(transaction).value
+    client.confirm_transaction(signature)
+    
+    print(f"Token created! Signature: {signature}")
+    return signature
+
+if __name__ == "__main__":
+    create_token_local_mode()
+```

@@ -20,7 +20,13 @@
                             "api",
                             "self-hosting"
                         ]
-                    }
+                    }, 
+                  {
+                    "group": "Code Examples",
+                    "pages": [
+                      
+                    ]
+                  }
                 ]
             }
         ]
@@ -44,8 +50,7 @@
     "footer": {
         "socials": {
             "x": "https://x.com/Bl1tzz_Sol",
-            "github": "https://github.com/mintlify",
-            "linkedin": "https://linkedin.com/company/mintlify"
+            "github": "https://github.com/mintlify"
         }
     },
     "openapi": "/api-reference/openapi.json"
