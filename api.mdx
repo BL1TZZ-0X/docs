@@ -6,7 +6,7 @@ icon: "gear"
 
 ## Overview
 
-Blitzz is a simple yet lightning-fast API for trading and market data tokens on Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live human readable events.
+Blitzz is a simple yet lightning-fast API for trading and market data tokens on Pump Fun and Pump AMM. Use it to build transactions, send them, fetch token metadata, and stream live human readable events. 
 
 ## Base URLs
 
@@ -29,7 +29,7 @@ No API key is required to use the Blitzz API. However, per-IP rate limits apply 
   - `amount` for buy or create is specified in lamports (1 SOL = 1,000,000,000 lamports).
   - `amount` for sell is specified in token base units (6 decimals).
 - **Slippage:** `slippage_pct` is a percentage (e.g., 0.5 means 0.5%).
-- **Priority Fee:** `prioFee` is the priority fee in SOL (e.g., 0.0005). 
+- **Priority Fee:** `prioFee` is the priority fee in SOL (e.g., 0.0005).
 - **Pool:** `pool` must be one of "pump", "pump-amm", or "auto".
 - **Errors:** Errors are returned in a standard JSON format.
 
@@ -199,6 +199,7 @@ curl -X POST http://api.blitzz.fun/local-trade \
   }'
 ```
 
+
 ```bash Sell on Pump AMM
 curl -X POST http://api.blitzz.fun/local-trade \
   -H 'content-type: application/json' \
@@ -212,6 +213,7 @@ curl -X POST http://api.blitzz.fun/local-trade \
     "prioFee": 0.0005
   }'
 ```
+
 
 ```bash Create a Token
 curl -X POST http://api.blitzz.fun/local-trade \
@@ -230,6 +232,7 @@ curl -X POST http://api.blitzz.fun/local-trade \
     }
   }'
 ```
+
 
 ```bash Claim Creator Fees
 curl -X POST http://api.blitzz.fun/local-trade \
@@ -426,6 +429,7 @@ curl -X POST http://api.blitzz.fun/blitzz \
   }'
 ```
 
+
 ```bash Claim Creator Fees
 curl -X POST http://api.blitzz.fun/blitzz \
   -H 'content-type: application/json' \
@@ -481,6 +485,7 @@ curl -X POST http://api.blitzz.fun/metadata \
     ]
   }'
 ```
+
 
 ```json Response
 {
@@ -598,6 +603,7 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
 }
 ```
 
+
 ```json Trade (Pump AMM)
 {
   "signature": "SIG",
@@ -612,6 +618,7 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
   "pool": "pump-amm"
 }
 ```
+
 
 ```json Create (Pump Fun)
 {
@@ -628,6 +635,7 @@ Send a JSON message to the WebSocket to subscribe to events. You can filter by m
   "pool": "pump"
 }
 ```
+
 
 ```json Migrate (Pump Fun)
 {
